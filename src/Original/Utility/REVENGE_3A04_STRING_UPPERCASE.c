@@ -3,6 +3,7 @@
 // using Reko decompiler version 0.11.4.0.
 
 #include "REVENGE.h"
+#include <stdint.h>
 
 // 3A04:000C: char *UppercaseStringInPlace(char *text)
 // Called from:
@@ -17,6 +18,9 @@
 //      FindResourceDescriptorIndex
 char *UppercaseStringInPlace(char *text)
 {
+	if (text == 0 || (uintptr_t)text < 0x10000)
+		return text;
+
 	// V: Borland-style far strupr. Convert only ASCII a-z and return the
 	// original far pointer; punctuation and already-uppercase text are intact.
 	char *cursor = text;
