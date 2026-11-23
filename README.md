@@ -1,3 +1,12 @@
+#NOTE from the forker
+Just another project pulled over so I could compile it for linux as I am impatient.
+
+AI Disclosure: I did use Google Gemini to track down the individual functions that were causing trouble between the original meant for Windows and this.
+Not proud of it, but i don't know the tiny particulars of how the Windows-translated functions needed to be tweaked for Linux.
+
+
+
+
 <h1 align="center">
   <img src="docs/images/title-banner.png" alt="BattleTech: The Crescent Hawks' Revenge" width="560">
 </h1>
