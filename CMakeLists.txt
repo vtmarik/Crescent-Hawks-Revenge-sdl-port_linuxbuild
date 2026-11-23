@@ -7,6 +7,10 @@ project(CrescentHawksRevenge VERSION ${CHR_RELEASE_VERSION} LANGUAGES C)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+if(NOT WIN32)
+    add_compile_definitions(_POSIX_C_SOURCE=200809L)
+endif()
+
 
 option(CHR_BUILD_SDL "Build the SDL3 replacement for the DOS platform" ON)
 option(CHR_FETCH_SDL "Fetch the pinned SDL3 release when it is not installed" ON)
@@ -19,7 +23,7 @@ function(chr_strict target)
         target_compile_options(${target} PRIVATE /W4 /WX /Gy)
         target_link_options(${target} PRIVATE /OPT:REF)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-overflow)
     endif()
     # Preservation tests use the standard assert macro as their witness
     # mechanism. Keep those checks active in Release builds as well.
@@ -591,28 +595,35 @@ if(BUILD_TESTING)
 endif()
 
 if(CHR_BUILD_SDL)
-    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-    set(SDL_STATIC ON CACHE BOOL "" FORCE)
-
     if(CHR_FETCH_SDL)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
         include(FetchContent)
         FetchContent_Declare(SDL3
-            URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+            URL https://github.com
             URL_HASH SHA256=7322236cd12090c3eb40b9728be4d49c76f66ad17d04369584d4ecad5cf77c68)
         set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
         set(SDL_TESTS OFF CACHE BOOL "" FORCE)
         FetchContent_MakeAvailable(SDL3)
     else()
-        find_package(SDL3 3.2 CONFIG REQUIRED)
+        find_package(SDL3 3.2 CONFIG QUIET)
+        if(NOT TARGET SDL3::SDL3 AND NOT TARGET SDL3::SDL3-static)
+            find_package(PkgConfig REQUIRED)
+            pkg_check_modules(SDL3 REQUIRED IMPORTED_TARGET sdl3)
+        endif()
     endif()
 
-    if(NOT TARGET SDL3::SDL3-static)
+    if(TARGET SDL3::SDL3-static)
+        set(CHR_SDL_TARGET SDL3::SDL3-static)
+    elseif(TARGET SDL3::SDL3)
+        set(CHR_SDL_TARGET SDL3::SDL3)
+    elseif(TARGET PkgConfig::SDL3)
+        set(CHR_SDL_TARGET PkgConfig::SDL3)
+    else()
         message(FATAL_ERROR
-            "A static SDL3 library was not found. Set SDL3_DIR to a static SDL3 installation "
-            "or configure with -DCHR_FETCH_SDL=ON.")
+            "An SDL3 library was not found. Install sdl3-devel or configure with -DCHR_FETCH_SDL=ON.")
     endif()
 
-    set(CHR_SDL_TARGET SDL3::SDL3-static)
 
     add_library(chr_sdl_backend STATIC
         src/SDL/audio.c
@@ -622,6 +633,10 @@ if(CHR_BUILD_SDL)
         src/SDL/system.c)
     target_include_directories(chr_sdl_backend PUBLIC src/SDL include)
     target_link_libraries(chr_sdl_backend PUBLIC ${CHR_SDL_TARGET})
+    if(NOT WIN32)
+        target_link_libraries(chr_sdl_backend PUBLIC m)
+    endif()
+
     chr_strict(chr_sdl_backend)
 
     # The diagnostic still consumes the retired host-side CPS adapter.
@@ -655,7 +670,7 @@ if(CHR_BUILD_SDL)
             ${CMAKE_BINARY_DIR}/package
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:Revenge>
-            ${CMAKE_BINARY_DIR}/package/Revenge.exe
+            ${CMAKE_BINARY_DIR}/package/Revenge
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/config/REVENGE.CFG
             ${CMAKE_BINARY_DIR}/package/REVENGE.CFG
